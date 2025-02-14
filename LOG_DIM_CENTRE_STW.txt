@@ -1,0 +1,39 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_DIM_CENTRE_STW(
+	CEN_ID_CENTRE bigint comment 'Clé technique Centre Storeway',
+	CEN_CODE_CENTRE_PK bigint comment 'Code Centre Storeway ',
+	CEN_LIB_CENTRE string comment 'Libellé Centre Storeway',
+	AGC_ID_AGENCE bigint comment 'ID Agence Storeway',
+    CEN_CODE_AGENCE int comment 'Code Agence Storeway',
+    CEN_CODE_SOCIETE int comment 'Code Societe Storeway',
+    CEN_DATH_MAJ timestamp comment   'Date-heure de maj de de l enregistrement '
+) comment 'Table des Centres Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_DIM_CENTRE_STW/'
+Insert into  cooperl_global_test_bi_db.LOG_DIM_CENTRE_STW
+
+select
+-1 as  CEN_ID_CENTRE ,
+-1 as CEN_CODE_CENTRE_PK ,
+'NRE' as CEN_LIB_CENTRE,
+-1 as AGC_ID_AGENCE,
+-1 CEN_CODE_AGENCE,
+--  code_societe de l'agence ou centre ?
+-1 as CEN_CODE_SOCIETE,
+now() as  CEN_DATH_MAJ
+
+union all 
+
+select 
+row_number () over () as  CEN_ID_CENTRE ,
+code_centre as CEN_CODE_CENTRE_PK ,
+nom_centre as CEN_LIB_CENTRE,
+coalesce(AGC_ID_AGENCE,-1) as AGC_ID_AGENCE,
+code_agence as CEN_CODE_AGENCE,
+--  code_societe de l'agence ou centre ?
+code_societe as CEN_CODE_SOCIETE,
+now() as  CEN_DATH_MAJ
+from cooperl_logistique_silver_db.centre left join cooperl_global_test_bi_db.LOG_DIM_AGENCE_STW on code_agence = agc_code_agence_pk  and code_societe = agc_code_societe_pk
+order by CEN_CODE_CENTRE_PK
+

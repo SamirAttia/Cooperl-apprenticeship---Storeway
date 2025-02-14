@@ -1,0 +1,46 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_DIM_SITE_STW(
+	sit_id_site int comment 'Clé technique Sites storeway',
+	SIT_CODE_SITE_PK bigint comment 'Code Sites Storeway ',
+	SIT_LIB_SITE string comment 'Libellé Sites Storeway',
+	SIT_CODE_PAYS string comment 'Code Pays Storeway',
+    SIT_CODE_POSTAL string comment 'Code postal storeway' , 
+    SIT_LIB_ADRESSE string comment 'Libellé Adresse Storeway' ,
+    SIT_LIB_VILLE string comment 'Libellé ville Storeway' ,
+    sit_dath_maj timestamp comment 'Date-heure de maj de de l enregistrement '
+) comment 'Table des Sites Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_DIM_SITE_STW/'
+
+Insert into cooperl_global_test_bi_db.LOG_DIM_SITE_STW
+
+
+with r1 as  ( Select distinct code_site as sit_code_site_pk , 
+libelle_site as sit_lib_site , 
+code_pays as sit_code_pays,
+code_postal as sit_code_postal ,
+adresse as sit_lib_adresse ,
+ville as sit_lib_ville 
+from cooperl_logistique_silver_db.site ) 
+
+select distinct
+-1 as  sit_id_site,
+-1 as  sit_code_site_pk,
+'NRE' as  sit_lib_site,
+'NRE'as  sit_code_pays,
+'NRE' as  sit_code_postal,
+'NRE' as sit_lib_adresse,
+'NRE' as  sit_lib_ville,
+now() as  sit_dath_maj 
+union all 
+select distinct
+row_number() over (order by sit_code_site_pk) as sit_id_site,
+sit_code_site_pk,
+coalesce(nullif(sit_lib_site,''),'NRE'),
+coalesce(nullif(sit_code_pays,''),'NRE'),
+coalesce(nullif(sit_code_postal,''),'NRE'),
+coalesce(nullif(sit_lib_adresse,''),'NRE'),
+coalesce(nullif(sit_lib_ville,''),'NRE'),
+now() as sit_dath_maj
+from r1 

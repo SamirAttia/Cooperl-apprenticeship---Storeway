@@ -1,0 +1,75 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_FCT_COMMANDES_STW(
+	num_commande_pk string comment 'Numéro de Commande ',
+	dath_commande timestamp comment 'Date-heure de la commande ',
+	date_commande date comment 'Date commande',
+	tie_id_tiers bigint comment 'Identifiant Client',
+    code_tiers int comment 'Code Client',
+    sit_id_site_enlevement int comment 'ID Site',
+    code_site_enlevement bigint comment 'Code site enlevement',
+    DATH_enlevement_reelle timestamp comment 'Date-heure enlevement reelle',
+    date_enlevement_reelle date  comment 'Date enlevement reelle',
+    sit_id_site_livraison int comment 'ID Site',   
+    code_site_livraison bigint comment 'Code site livraison',
+    dath_livraison_reelle timestamp comment 'Date-heure livraison reelle',
+    date_livraison_reelle date comment 'Date livraison reelle',
+    qte_poids double comment 'Quantité poids',
+    qte_volume double comment 'Quantité volume',
+    nbre_colis int comment 'Nombre de colis',
+    nbre_palettes int comment 'Nombre de palettes',
+    mtt_commande double comment'Montant commande',
+    dath_maj timestamp comment  'Date-heure de maj de de l enregistrement '
+) comment 'Table des Commandes Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_FCT_COMMANDES_STW/'
+
+
+Insert into cooperl_global_test_bi_db.LOG_FCT_COMMANDES_STW
+
+
+select '-1' as num_commande_pk,
+timestamp'1900-01-01 00:00:00' as dath_commande,
+date'1900-01-01' as  date_commande,
+-1 as tie_id_tiers,
+-1 as code_tiers,
+-1 as sit_id_site_enlevement,
+-1 as code_site_enlevement,
+timestamp'1900-01-01 00:00:00' as DATH_enlevement_reelle,
+date'1900-01-01' as date_enlevement_reelle,
+-1 as sit_id_site_livraison,
+-1 as code_site_livraison,
+timestamp'1900-01-01 00:00:00' as dath_livraison_reelle,
+date'1900-01-01' as date_livraison_reelle,
+-1 as qte_poids,
+-1 as qte_volume,
+-1 as nbre_colis,
+-1 as nbre_palettes,
+-1 as mtt_commande,
+now() as dath_maj
+
+Union all
+
+select numero_commande as num_commande_pk , 
+date_heure_commande as dath_commande,
+date(date_heure_commande) as date_commande , 
+tie_id_tiers,
+code_client as code_tiers , 
+b.sit_id_site as sit_id_site_enlevement ,
+code_site_enlevement,
+date_heure_enlevement_reelle as DATH_enlevement_reelle ,
+date(date_heure_enlevement_reelle) as date_enlevement_reelle ,
+a.sit_id_site as sit_id_site_livraison , 
+code_site_livraison ,
+coalesce(date_heure_livraison_reelle,timestamp'1900-01-01 00:00:00') as dath_livraison_reelle,
+coalesce(date(date_heure_livraison_reelle),date '1900-01-01') as date_livraison_reelle ,
+quantite_poids as qte_poids ,
+quantite_volume as qte_volume ,
+nombre_colis as nbre_colis ,
+nombre_palettes as nbre_palettes ,
+montant_commande as mtt_commande,
+now() as dath_maj 
+from cooperl_logistique_silver_db.commande 
+left join cooperl_global_test_bi_db.log_dim_tiers_stw on cooperl_logistique_silver_db.commande.code_client = cooperl_global_test_bi_db.log_dim_tiers_stw.tie_code_tiers_pk
+left join cooperl_global_test_bi_db.log_dim_site_stw b on  cooperl_logistique_silver_db.commande.code_site_enlevement=b.sit_code_site_pk
+left join cooperl_global_test_bi_db.log_dim_site_stw a on cooperl_logistique_silver_db.commande.code_site_livraison=a.sit_code_site_pk  

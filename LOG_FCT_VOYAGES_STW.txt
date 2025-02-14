@@ -1,0 +1,67 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_FCT_VOYAGES_STW(
+	num_voyage_pk double comment 'Numéro de voyage',
+	cen_id_centre bigint comment 'ID centre',
+	code_centre bigint comment 'Code centre',
+	DATH_depart timestamp comment 'Date-heure depart',
+    date_depart date comment 'Date départ',
+    DATH_arrivee timestamp comment 'Date-heure arrivee',
+    date_arrivee date comment 'Date arrivee',
+    nbre_kilometres int comment 'Nombres kilometres',
+    mtt_voyage double  comment 'Montant voyage',
+    mtt_debours double comment 'Montant debours',
+    QTE_poids_net_receptionnee double comment 'QTE_poids_net_receptionnee',
+    nbre_eut_receptionnes int comment 'Nombres eut receptionnées',
+    nbre_palettes_receptionnes int comment 'Nombres palesttes receptionnées',
+    nbre_colis_receptionnes int comment 'Nombres colis receptionnées',
+    dath_maj timestamp comment  'Date-heure de maj de de l enregistrement '
+) comment 'Table des Voyages Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_FCT_VOYAGES_STW/'
+
+Insert into cooperl_global_test_bi_db.LOG_FCT_VOYAGES_STW
+
+with r1 as ( select -1 as num_voyage_pk,
+-1 as cen_id_centre ,
+-1 as code_centre ,
+timestamp'1900-01-01 00:00:00' as DATH_depart,
+date'1900-01-01' as date_depart,
+timestamp'1900-01-01 00:00:00' as DATH_arrivee,
+date'1900-01-01' as date_arrivee,
+-1 as nbre_kilometres,
+-1 as mtt_voyage ,
+-1 as mtt_debours,
+-1 as QTE_poids_net_receptionnee,
+-1 as nbre_eut_receptionnes,
+-1 as nbre_palettes_receptionnes,
+-1 as  nbre_colis_receptionnes,
+now() as dath_maj
+union all 
+select distinct 
+voyage.numero_voyage as num_voyage_pk ,
+cen_id_centre ,
+log_dim_centre_stw.cen_code_centre_pk,
+date_heure_debut_voyage as DATH_depart,
+date(date_heure_debut_voyage) as date_depart,
+date_heure_fin_voyage as DATH_arrivee,
+date(date_heure_fin_voyage) as date_arrivee,
+nombre_kilometres as nbre_kilometres,
+montant_voyage as mtt_voyage ,
+montant_debours as mtt_debours,
+coalesce(quantite_poids_net_receptionnee,-1) as QTE_poids_net_receptionnee,
+coalesce(nombre_eut_receptionnes,-1) as nbre_eut_receptionnes,
+coalesce(nombre_palettes_receptionnees,-1) as nbre_palettes_receptionnes ,
+coalesce(nombre_colis_receptionnes,-1) as nbre_colis_receptionnes,
+now() as dath_maj
+from cooperl_logistique_silver_db.voyage 
+ left  join cooperl_logistique_silver_db.segment on voyage.numero_voyage=segment.numero_voyage 
+ left join cooperl_logistique_silver_db.debours on voyage.numero_voyage=debours.numero_voyage 
+left join cooperl_global_test_bi_db.log_dim_centre_stw on voyage.code_centre = log_dim_centre_stw.cen_code_centre_pk 
+left join cooperl_logistique_silver_db.quantite_receptionnee_commande on quantite_receptionnee_commande.numero_commande=segment.numero_commande 
+and segment.code_segment=quantite_receptionnee_commande.code_segment  
+order by num_voyage_pk ) 
+
+select num_voyage_pk , count(*) from r1 group by num_voyage_pk having count(*) > 1 
+
+

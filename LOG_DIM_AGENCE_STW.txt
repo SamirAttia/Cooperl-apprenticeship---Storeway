@@ -1,0 +1,41 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_DIM_AGENCE_STW(
+	AGC_ID_AGENCE bigint comment 'Clé technique Agence Storeway',
+	AGC_CODE_AGENCE_PK int comment 'Code Agence Storeway ',
+	AGC_LIB_AGENCE string comment 'Libellé Agence Storeway',
+	AGC_CODE_POSTAL string comment 'Code Postal Storeway',
+    AGC_LIB_VILLE string comment 'Libellé Ville code Storeway',
+    AGC_CODE_PAYS string comment 'Code pays Storeway',
+    AGC_CODE_SOCIETE_PK int comment 'Code societe Storeway' ,
+    AGC_LIB_SOCIETE string comment 'Libellé societe Storeway',
+    AGC_DATH_MAJ timestamp comment   'Date-heure de maj de de l enregistrement '
+) comment 'Table des Clients Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_DIM_AGENCE_STW/'
+ 
+Insert into cooperl_global_test_bi_db.LOG_DIM_AGENCE_STW
+
+select -1 as AGC_ID_AGENCE, 
+-1 as  AGC_CODE_AGENCE_PK,
+'NRE' as AGC_LIB_AGENCE , 
+'NRE' as AGC_CODE_POSTAL,
+'NRE' as  AGC_LIB_VILLE,
+'NRE' as AGC_CODE_PAYS,
+-1 as AGC_CODE_SOCIETE_PK,
+'NRE' as AGC_LIB_SOCIETE,
+now() as  AGC_DATH_MAJ
+union all 
+
+select row_number() over() as AGC_ID_AGENCE,
+code_agence as  AGC_CODE_AGENCE_PK,
+ nom_agence as  AGC_LIB_AGENCE ,
+coalesce (nullif(agence.code_postal,' '),'NRE')  as  AGC_CODE_POSTAL,
+ coalesce(nullif(agence.nom_ville,' '),'NRE') as AGC_LIB_VILLE,
+ coalesce(nullif(agence.code_pays,' '),'NRE') as AGC_CODE_PAYS,
+agence.code_societe as AGC_CODE_SOCIETE_pk,
+coalesce(nullif(nom_societe,''),'NRE') as AGC_LIB_SOCIETE , 
+now() as AGC_DATH_MAJ 
+from cooperl_logistique_silver_db.agence 
+left join cooperl_logistique_silver_db.societe on agence.code_societe = societe.code_societe
+

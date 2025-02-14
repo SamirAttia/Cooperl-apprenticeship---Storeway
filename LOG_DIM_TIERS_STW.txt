@@ -1,0 +1,42 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_DIM_TIERS_STW(
+	tie_id_tiers int comment 'Clé technique Tiers Storeway',
+	tie_code_tiers_pk bigint comment 'Code Client Storeway ',
+	tie_lib_tiers string comment 'Libellé Client Storeway',
+	tie_code_type string comment 'Code Type Storeway',
+    tie_lib_type string comment 'Libellé type code Storeway',
+    tie_dath_maj timestamp comment 'Date-heure de maj de de l enregistrement '
+) comment 'Table des Clients Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_DIM_TIERS_STW/'
+
+Insert into cooperl_global_test_bi_db.LOG_DIM_TIERS_STW
+with details_tiers as (
+	select distinct code_tiers,
+		code_type_tiers
+	from cooperl_logistique_silver_db.details_tiers
+	order by code_tiers
+)
+select -1 as tie_id_tiers,
+	-1 as tie_code_tiers_pk,
+	'NRE' as tie_lib_tiers,
+	'NRE' as TIE_CODE_TYPE,
+	'Non renseigne' as TIE_LIB_TYPE,
+	now() as tie_dath_maj
+union all
+select ROW_NUMBER() over () as tie_id_tiers,
+	tiers.code_tiers as tie_code_tiers_pk,
+	nom_tiers as tie_lib_tiers,
+	case
+		when code_type_tiers = 'A' then 'A'
+		when code_type_tiers = 'C' then 'C' else 'NRE'
+	end as TIE_CODE_TYPE,
+	case
+		when code_type_tiers = 'A' then 'Affrete'
+		when code_type_tiers = 'C' then 'Client' else 'Non renseigne'
+	end as TIE_LIB_TYPE,
+	now() as tie_dath_maj
+From cooperl_logistique_silver_db.tiers
+	left join details_tiers on tiers.code_tiers = details_tiers.code_tiers
+order by tie_id_tiers

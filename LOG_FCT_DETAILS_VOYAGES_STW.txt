@@ -1,0 +1,71 @@
+create external Table if not exists cooperl_global_test_bi_db.LOG_FCT_DETAILS_VOYAGES_STW(                        
+	num_commande_pk string comment 'Numéro de commande',
+	code_segment_pk int comment 'Code segment',
+	num_voyage bigint comment 'Numéro voyage',
+	code_statut int comment 'Code statut',
+	sit_id_site_enlevement bigint comment 'ID site',
+	code_site_enlevement bigint comment 'Code site enlévement',
+	dath_enlevement timestamp comment 'Date-heure enlévement',
+	date_enlevement date comment 'Date enlémevement',
+	sit_id_site_livraison bigint comment 'ID site',
+	code_site_livraison int comment 'Code site livraison',
+	dath_livraison timestamp comment 'Date-heure livraison',
+	date_livraison date comment 'Date livraison',
+	code_centre bigint comment 'Code centre',
+	qte_poids double comment 'Quantité Poids',
+	nbre_eut int comment 'Nombres eut',
+	mtt_charges double comment 'Montant charges',
+	mtt_debours double comment 'Montant debours',
+	dath_maj timestamp comment 'Date-heure Mise à jour'
+) comment 'Table des détails Voyages Storeway'
+ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
+WITH SERDEPROPERTIES ('serialization.format' = '1')
+STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat' OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
+LOCATION 's3://cooperl-gold-dev/logistique/Storeway/test/LOG_FCT_DETAILS_VOYAGES_STW/'
+insert into cooperl_global_test_bi_db.LOG_FCT_DETAILS_VOYAGES_STW
+select 'NRE' as num_commande_pk,
+	-1 as code_segment_pk,
+	-1 as num_voyage,
+	-1 as code_statut,
+	-1 as sit_id_site_enlevement,
+	-1 as code_site_enlevement,
+	timestamp '1900-01-01 00:00:00' as dath_enlevement,
+	date '1900-01-01' as date_enlevement,
+	-1 as sit_is_site_livraison , 
+	-1 as code_site_livraison,
+	timestamp '1900-01-01 00:00:00' as dath_livraison,
+	date '1900-01-01' as date_livraison,
+	-1 as code_centre,
+	-1 as qte_poids,
+	-1 as nbre_eut,
+	-1 as mtt_charges,
+	-1 as mtt_debours,
+	timestamp '1900-01-01 00:00:00' as dath_maj
+
+Union all
+
+select distinct c.numero_commande as num_commande_pk,
+	c.code_segment as code_segment_pk,
+	numero_voyage as num_voyage,
+	code_statut,
+	b.sit_id_site as id_site_enlevement,
+	code_site_enlevement,
+	date_heure_enlevement as dath_enlevement,
+	date(date_heure_enlevement) as date_enlevement,
+	a.sit_id_site as id_site_livraison ,
+	code_site_livraison,
+	date_heure_livraison as dath_livraison,
+	date(date_heure_livraison) as date_livraison,
+	code_centre,
+	quantite_poids as qte_poids,
+	nombre_eut as nbre_eut,
+	montant_segment as mtt_charges,
+	coalesce(montant_debours, -1) as mtt_debours,
+	now() as dath_maj
+from cooperl_logistique_silver_db.segment c 
+	left join cooperl_logistique_silver_db.debours_segment on c.numero_commande = debours_segment.numero_commande
+	and c.code_segment = debours_segment.code_segment
+	left join cooperl_global_test_bi_db.log_dim_site_stw a on c.code_site_livraison = a.sit_code_site_pk
+	left join cooperl_global_test_bi_db.log_dim_site_stw b on c.code_site_enlevement = b.sit_code_site_pk 
+order by num_commande_pk,
+	code_segment_pk
